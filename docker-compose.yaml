@@ -1,0 +1,37 @@
+version: '3'
+services:
+  traefik:
+    image: traefik:v2.2
+    command:
+      - --providers.docker
+      - --entrypoints.http.address=:80
+    ports:
+      - "8085:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    expose:
+      - "8081"
+    labels:
+      - "traefik.http.routers.api-server.rule=Host(`api-server.com`)"
+      - "traefik.http.routers.api-server.service=api-server"
+      - "traefik.http.routers.api-server.middlewares=api-server@docker"
+      - "traefik.http.middlewares.api-server.forwardauth.address=http://authz-server:4000/auth"
+      - "traefik.http.middlewares.api-server.forwardauth.authresponseheaders=X-Mailgun-Account-Id, X-Mailgun-Domain-Id, X-Spec-Auth-Type"
+      - "traefik.http.services.api-server.loadbalancer.server.url=http://api-server:8081"
+  authz-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.authz
+    expose:
+      - "4000"
+    ports:
+      - "4000:4000"
+        #labels:
+        #- "traefik.http.routers.forward-auth.rule=Host(`authz-server.com`)"
+        #- "traefik.http.routers.forward-auth.service=forward-auth-svc"
+        #- "traefik.http.services.forward-auth-svc.loadbalancer.server.port=4000"
