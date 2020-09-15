@@ -3,8 +3,10 @@ services:
   traefik:
     image: traefik:v2.2
     command:
+      - --entrypoints.web.address=:80
       - --providers.docker
-      - --entrypoints.http.address=:80
+      - --api.insecure
+      #- --log.level=DEBUG
     ports:
       - "8085:80"
       - "8080:8080"
@@ -15,14 +17,18 @@ services:
       context: .
       dockerfile: Dockerfile.api
     expose:
-      - "8081"
+      - "80"
+    ports:
+      - "8001:80"
     labels:
+      - "traefik.enable=true"
       - "traefik.http.routers.api-server.rule=Host(`api-server.com`)"
       - "traefik.http.routers.api-server.service=api-server"
       - "traefik.http.routers.api-server.middlewares=api-server@docker"
+      - "traefik.http.routers.api-server.entrypoints=web"
       - "traefik.http.middlewares.api-server.forwardauth.address=http://authz-server:4000/auth"
       - "traefik.http.middlewares.api-server.forwardauth.authresponseheaders=X-Mailgun-Account-Id, X-Mailgun-Domain-Id, X-Spec-Auth-Type"
-      - "traefik.http.services.api-server.loadbalancer.server.url=http://api-server:8081"
+      - "traefik.http.services.api-server.loadbalancer.server.url=http://api-server:80"
   authz-server:
     build:
       context: .

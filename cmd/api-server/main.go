@@ -16,11 +16,11 @@ type Response struct {
 func main() {
 	r := chi.NewRouter()
 
-	log.Print("listening on 8081....")
+	log.Print("listening on 80....")
 	r.Get("/", getIndex)
 	r.Get("/stats", getStats)
 	r.Get("/v3/domains/{domain}/info", getDomainInfo)
-	http.ListenAndServe(":8081", r)
+	http.ListenAndServe(":80", r)
 }
 
 func getIndex(w http.ResponseWriter, r *http.Request) {

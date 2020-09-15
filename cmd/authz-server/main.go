@@ -112,14 +112,22 @@ func (a *AuthController) getAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	uri := r.Header.Get("X-Forwarded-Uri")
+	if uri == "" {
+		failAuth(w, "'X-Forwarded-Uri' header missing")
+		return
+	}
+
 	// Match the spec against the request path
-	if spec := a.matchSpec(r.URL.Path); spec != nil {
+	if spec := a.matchSpec(uri); spec != nil {
 		// TODO: Preform auth using the spec and return valid headers for this spec
+		log.Printf("matched spec '%s'", spec.ServiceName)
 		h := w.Header()
 		h.Set("X-Mailgun-Domain-Id", "domain-id-01")
 		h.Set("X-Mailgun-Account-Id", "account-id-01")
 		h.Set("X-Spec-Auth-Type", spec.AuthType)
 	} else {
+		log.Printf("unmatched spec '%s'", spec.ServiceName)
 		h := w.Header()
 		h.Set("X-Mailgun-Account-Id", "account-id-01")
 	}
