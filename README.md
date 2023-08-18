@@ -1,9 +1,20 @@
 ## Traefik POC
+It Consists of a Traefik proxy with a single entrypoint, middleware, router and two backend servers
 
-# Traefik as an API Gateway
-Consists of a Traefik proxy with a single entrypoint, middleware, router and service
+# Testing the 503 off loading
+```bash
+# Start Traefik with two api-server backends
+$ docker-compose up -d
 
-# Usage
+# Now generate some load by making requests through 
+# Traefik to the api-server backends
+$ go run ./cmd/client
+```
+<h2 align="center">
+    <img src="assets/poc-in-action.png" alt="POC in Action"/><br />
+</h2>
+
+# Testing the Auth Middleware
 ```bash
 $ docker-compose up
 
