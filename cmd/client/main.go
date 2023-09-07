@@ -31,7 +31,6 @@ func request(client *http.Client, limiter *rate.Limiter) {
 		return
 	}
 
-	// Read the response body. This is just to show you can, you might not want to do this for all responses.
 	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {

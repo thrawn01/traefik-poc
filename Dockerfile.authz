@@ -1,9 +1,11 @@
-FROM golang:1.15 as authz-server
+FROM golang:1.20 as authz-server
 
 RUN mkdir -p /src
 WORKDIR /src
 COPY . /src
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /authz-server ./cmd/authz-server
+
+HEALTHCHECK NONE
 
 EXPOSE 4000
 CMD ["/authz-server"]

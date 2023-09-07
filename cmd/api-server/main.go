@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"math/rand"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
+	"github.com/prometheus/client_golang/prometheus"
 	poc "github.com/thrawn01/poc"
 )
 
@@ -22,14 +24,37 @@ type Response struct {
 }
 
 var (
-	limiter *poc.Limiter
+	limiter        *poc.Limiter
+	slow           time.Duration
+	mb             int64
+	metricRequests = prometheus.NewSummary(prometheus.SummaryOpts{
+		Name: "http_requests",
+		Help: "The duration of http requests",
+		Objectives: map[float64]float64{
+			0.5:  0.05,
+			0.95: 0.01,
+			0.99: 0.001,
+			1:    0.001,
+		},
+	})
 )
 
 func main() {
-	mb, err := strconv.ParseInt(os.Getenv("MB_LIMIT"), 10, 64)
+	var err error
+
+	promRegister := prometheus.NewRegistry()
+	promRegister.MustRegister(metricRequests)
+
+	mb, err = strconv.ParseInt(os.Getenv("MB_LIMIT"), 10, 64)
 	if err != nil {
 		panic(err)
 	}
+	slow, err = time.ParseDuration(os.Getenv("SLOW"))
+	if err != nil {
+		slow = time.Nanosecond
+	}
+	fmt.Printf("Slow: %s MB: %d\n", slow.String(), mb)
+
 	limiter = poc.NewConnLimiter(mb)
 	r := chi.NewRouter()
 
@@ -44,6 +69,10 @@ func main() {
 	r.Get("/health", checkHealth)
 	r.Head("/health", checkHealth)
 	r.Get("/v3/messages", sendMessages)
+
+	r.Handle("/metrics", promhttp.InstrumentMetricHandler(
+		promRegister, promhttp.HandlerFor(promRegister, promhttp.HandlerOpts{}),
+	))
 
 	// Let's GO!
 	err = http.ListenAndServe(":80", r)
@@ -77,6 +106,8 @@ func getDomainInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendMessages(w http.ResponseWriter, r *http.Request) {
+	defer prometheus.NewTimer(metricRequests).ObserveDuration()
+
 	// Between 0 and 5MB
 	size := rand.Int63n(5 << 20)
 
@@ -85,7 +116,13 @@ func sendMessages(w http.ResponseWriter, r *http.Request) {
 	limiter.Increment(size)
 
 	// Sleep between 100ms and 10 seconds
-	time.Sleep(time.Duration(100+rand.Intn(10901)) * time.Millisecond)
+	if mb != 0 {
+		time.Sleep(time.Duration(100+rand.Intn(10901)) * time.Millisecond)
+	}
+
+	// Add some artificial slowness in addition to the above-simulated time
+	// it takes to send data over the wire
+	time.Sleep(slow)
 
 	// TODO: Maybe we should have a soft limit, and a HARD limit?
 	// 	Soft limit to inform Traefik to back off
